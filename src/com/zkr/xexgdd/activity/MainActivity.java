@@ -560,15 +560,28 @@ public class MainActivity extends Activity implements OnClickListener,
 					@Override
 					public void run() {
 						try {
+							PayReq req = new PayReq();
 							JSONObject jsonObject = new JSONObject(json);
 							String wechat_pay_url = jsonObject.getString("wechat_pay_url");
 							String callback = jsonObject.getString("callback");
 							String mCancel = jsonObject.getString("cancel");
-							getResult(wechat_pay_url);
+							JSONObject jsonObject2 = new JSONObject(wechat_pay_url);
+							try {
+								req.appId			= Constant.APP_ID;
+								req.partnerId		= jsonObject2.getString("partnerid");   //response.getString("partnerid");
+								req.prepayId		= jsonObject2.getString("prepayid");
+								req.nonceStr		= jsonObject2.getString("noncestr");
+								req.timeStamp		= jsonObject2.getString("timestamp");
+								req.packageValue	= jsonObject2.getString("package");
+								req.sign			= jsonObject2.getString("sign");
+								wxApi.sendReq(req);
+							} catch (JSONException e) {
+								e.printStackTrace();
+							}
+							//getResult(wechat_pay_url);
 						} catch (JSONException e) {
 							e.printStackTrace();
 						}
-						
 					}
 				});
 			}
