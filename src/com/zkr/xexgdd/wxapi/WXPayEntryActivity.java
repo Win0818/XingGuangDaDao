@@ -41,12 +41,13 @@ public class WXPayEntryActivity  extends Activity implements IWXAPIEventHandler{
 		EventBus.getDefault().post("hello");
 		if (resp.getType() == ConstantsAPI.COMMAND_PAY_BY_WX) {
 			if (resp.errCode == 0){
-				Toast.makeText(getApplicationContext(), "支付成功", 2000).show();
+				Toast.makeText(getApplicationContext(), "支付成功", Toast.LENGTH_LONG).show();
 				//EventBus.getDefault().post("wechat_pay_success");
 			} else if (resp.errCode == -1){
-				Toast.makeText(getApplicationContext(), "支付失败, 请重试", 2000).show();
+				Toast.makeText(getApplicationContext(), "支付失败, 请重试", Toast.LENGTH_LONG).show();
 				//EventBus.getDefault().post("wechat_pay_fail");
 			} else if (resp.errCode == -2){
+				Toast.makeText(getApplicationContext(), "取消支付", Toast.LENGTH_LONG).show();
 				//EventBus.getDefault().post("wechat_pay_cancel");
 			}
 			finish();

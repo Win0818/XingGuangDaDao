@@ -24,7 +24,7 @@
 		    android:onClick="share"
 		    android:text="微信支付"
 		    android:textSize="18sp"
-		    android:visibility="visible"
+		    android:visibility="invisible"
 		    android:textColor="@android:color/secondary_text_light"
 		    />
     </FrameLayout>

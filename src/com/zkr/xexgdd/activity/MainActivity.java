@@ -83,9 +83,10 @@ public class MainActivity extends Activity implements OnClickListener,
 	private ImageButton mRefreshBtn;
 	private LinearLayout mNoNetworkLinearLayout;
 	private boolean DEBUG = true;
+	//private String mAddress = "file:///android_asset/html/index.html";
 	private String mAddress = "http://xgdd.zkr.hk/";
 	private String mNowURL;
-	private String mShareUrl;
+	private String mShareUrl; 
 	private String mTitle;
 	private Bitmap mIcom;
 	private long exitTime = 0;
@@ -110,6 +111,8 @@ public class MainActivity extends Activity implements OnClickListener,
 	private int newVersionCode = 1;
 	private String mAuth_Success_Url = null;
 	private String WECHAT_PAY_URL = "http://wxpay.weixin.qq.com/pub_v2/app/app_pay.php?plat=android";
+	private String mWechatPayCallback;
+	private JSONObject jsonObject_wechatpay_ref;
 	private Handler mHandler = new Handler() {
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
@@ -119,7 +122,7 @@ public class MainActivity extends Activity implements OnClickListener,
 			case Constant.HTML_LOADED:
 				stopProgressDialog();
 				break;
-			default:
+			default: 
 				break;
 			}
 		};
@@ -188,9 +191,18 @@ public class MainActivity extends Activity implements OnClickListener,
 	 * ��Activityִ��onResume()ʱ��WebViewִ��resume
 	 */
 	@Override
-	protected void onResume() {
+	protected void onResume() { 
 		super.onResume();
-		Log.d(TAG, "onResume:  " + Util.WECHAT_CODE);
+		String json = "{\"wechat_pay_url\":\"{\"sign\": \"EAF342C58F3A466072ADF7026CB9EF99\", " +
+				"\"timestamp\":\"1471877046187\"," +
+				"\"package\":\"Sign = WXPay \"," +
+				"\"noncestr\":\"NDk6hgB3PzuZ9nJx\"," + 
+				"\"partnerid \":\"1375237902\"," +
+				"\"appid \":\"wx0b01b307e5ebd67e \"," +
+				"\"prepayid \":\"wx20160822224406debc8a03050569224475\"}\", " +
+				"\"callback\":\"callback\"}";  
+		
+		Log.d(TAG, "onResume:  " + Util.WECHAT_CODE); 
 	}
 
 	@Override
@@ -335,17 +347,28 @@ public class MainActivity extends Activity implements OnClickListener,
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 		// TODO Auto-generated method stub
-		/*
-		 * if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
-		 * mWebView.goBack(); return false; } else
-		 */if (keyCode == KeyEvent.KEYCODE_BACK /* && !mWebView.canGoBack() */) {
-			exit();
-			return false;
+		// if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) { 
+		// mWebView.goBack(); return false; } else
+		LogUtil.d(TAG, "mWebView.getUrl();  "  + mWebView.getUrl());
+		if (mWebView != null) {
+			if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.getUrl().equals("http://xgdd.zkr.hk/#&pageHome")) {
+				exitApp();
+				return false;
+			} else {
+				if ( mWebView.canGoBack()) {
+					mWebView.loadUrl("javascript:window.history.back();");
+				} else {
+					mWebView.loadUrl("http://xgdd.zkr.hk/#&pageHome");
+				}
+			}
 		}
+		
 		return super.onKeyDown(keyCode, event);
 	}
+	
+	
 
-	public void exit() {
+	public void exitApp() {
 		if ((System.currentTimeMillis() - exitTime) > 2000) {
 			Toast.makeText(getApplicationContext(),
 					getResources().getString(R.string.quit_app),
@@ -436,8 +459,24 @@ public class MainActivity extends Activity implements OnClickListener,
 	 * 
 	 * @return
 	 */
+	
+	private  class JsBridge {
+		public  String mCallback = null;
+		@JavascriptInterface
+		public void share_To_Wechat_android(String webpageUrl,
+				String title, String description, String imageUrl) {
+			LogUtil.d("Wing", "--------------------->>>>>>>>>>>>>>>>>>>webpageUrl: " + webpageUrl + title +description + imageUrl);
+			mTitle = title;
+			mShareUrl = webpageUrl;
+			mDescription = description;
+			mImageUrl = imageUrl;
+			popMenu.showAsDropDown(MainActivity.this
+					.findViewById(R.id.main_root));
+		}
+	}
 	private Object getHtmlObject() {
 
+		String mCallback = null;
 		Object insertObj = new Object() {
 			@JavascriptInterface
 			public void share_To_Wechat_android(String webpageUrl,
@@ -546,9 +585,8 @@ public class MainActivity extends Activity implements OnClickListener,
 			public void clearUserInfo_android() {
 				MySharePreData.SetData(mContext, Constant.WECHAT_LOGIN_SP_NAME,
 						"union_id", "");
-			}
-
-			
+			} 
+			 
 			@JavascriptInterface
 			public void starVideoPlayActivity_android(String Url) {
 				startActivity(Url);
@@ -556,30 +594,44 @@ public class MainActivity extends Activity implements OnClickListener,
 			@JavascriptInterface
 			public void wechat_Pay_android (final String json) {
 				runOnUiThread(new Runnable() {
-					@Override
-					public void run() {
+					@Override 
+					public void run() { 
+						
 						try {
+							LogUtil.d(TAG, "wechat pay json:  " + json);
 							PayReq req = new PayReq();
 							JSONObject jsonObject = new JSONObject(json);
 							String wechat_pay_url = jsonObject.getString("wechat_pay_url");
-							String callback = jsonObject.getString("callback");
+							mWechatPayCallback = jsonObject.getString("callback");
 							String mCancel = jsonObject.getString("cancel");
-							JSONObject jsonObject2 = new JSONObject(wechat_pay_url);
+							LogUtil.d(TAG, "wechat pay JSON outer:  " + wechat_pay_url + ":::" + mWechatPayCallback + ":::" + mCancel);
+							JSONObject jsonObject2 = new JSONObject(wechat_pay_url); 
 							try {
 								req.appId			= Constant.APP_ID;
 								req.partnerId		= jsonObject2.getString("partnerid");   //response.getString("partnerid");
 								req.prepayId		= jsonObject2.getString("prepayid");
 								req.nonceStr		= jsonObject2.getString("noncestr");
 								req.timeStamp		= jsonObject2.getString("timestamp");
-								req.packageValue	= jsonObject2.getString("package");
+								req.packageValue	= "WX=Sign";
 								req.sign			= jsonObject2.getString("sign");
+								LogUtil.d(TAG, "wechat pay JSON inner:  " + req.appId + ":::" + req.partnerId + ":::" + req.prepayId + ":::" + req.nonceStr + ":::"
+										+ req.timeStamp + ":::" + req.packageValue + ":::" + req.sign);
 								wxApi.sendReq(req);
-							} catch (JSONException e) {
-								e.printStackTrace();
+								
+								jsonObject_wechatpay_ref = new JSONObject();
+								jsonObject2.put("prepayId", req.prepayId);
+								jsonObject2.put("partnerId", req.partnerId);
+								jsonObject2.put("nonceStr", req.nonceStr);
+								jsonObject2.put("sign", req.sign);
+								
+							} catch (JSONException e) {   
+								e.printStackTrace(); 
+								LogUtil.d(TAG, "wechat pay JSONException inner:  " + jsonObject2);
 							}
-							//getResult(wechat_pay_url);
+							//getResult(wechat_pay_url); 
 						} catch (JSONException e) {
 							e.printStackTrace();
+							LogUtil.d(TAG, "wechat pay JSONException  outer:  " + json);
 						}
 					}
 				});
@@ -712,9 +764,28 @@ public class MainActivity extends Activity implements OnClickListener,
 			}
 			break;
 		case "wechat_pay_success":
-			//mWebView.loadUrl("javascript: " + mCallback + "(" + result + ")");
+			JSONObject returnJson_success = new JSONObject();
+			try {
+				returnJson_success.put("errCode", "0000");
+				returnJson_success.put("errMsg", "执行成功");
+				returnJson_success.put("ref", jsonObject_wechatpay_ref);
+			} catch (JSONException e) {
+				e.printStackTrace();
+			}
+			String result = returnJson_success.toString();
+			mWebView.loadUrl("javascript: " + mWechatPayCallback + "(" + result + ")");
 			break;
 		case "wechat_pay_fail":
+			JSONObject returnJson_fail = new JSONObject();
+			try {
+				returnJson_fail.put("errCode", "0012");
+				returnJson_fail.put("errMsg", "支付失败");
+				returnJson_fail.put("ref", jsonObject_wechatpay_ref);
+			} catch (JSONException e) {
+				e.printStackTrace();
+			}
+			String result_fail = returnJson_fail.toString();
+			mWebView.loadUrl("javascript: " + mWechatPayCallback + "(" + result_fail + ")");
 			break;
 		case "wechat_pay_cancel":
 			//mWebView.loadUrl("javascript: " + mCancel + "(" + result + ")");
@@ -722,8 +793,8 @@ public class MainActivity extends Activity implements OnClickListener,
 		default:
 			break;
 		}
-		
 	}
+	
 	private void getResult(String wechat_pay_url) {
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 				wechat_pay_url, null,
