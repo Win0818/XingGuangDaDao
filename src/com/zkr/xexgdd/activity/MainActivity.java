@@ -553,7 +553,6 @@ public class MainActivity extends Activity implements OnClickListener,
 			public void starVideoPlayActivity_android(String Url) {
 				startActivity(Url);
 			}
-			
 			@JavascriptInterface
 			public void wechat_Pay_android (final String json) {
 				runOnUiThread(new Runnable() {
@@ -568,7 +567,6 @@ public class MainActivity extends Activity implements OnClickListener,
 						} catch (JSONException e) {
 							e.printStackTrace();
 						}
-						
 					}
 				});
 			}

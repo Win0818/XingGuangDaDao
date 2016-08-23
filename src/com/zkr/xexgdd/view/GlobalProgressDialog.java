@@ -24,10 +24,12 @@ public class GlobalProgressDialog extends Dialog {
     }
 	
 	public static GlobalProgressDialog createDialog(Context context){
+		
 		customProgressDialog = new GlobalProgressDialog(context,R.style.GlobalProgressDialog);
 		customProgressDialog.setContentView(R.layout.global_progress_dialog);
 		customProgressDialog.getWindow().getAttributes().gravity = Gravity.CENTER;
 		customProgressDialog.setCancelable(true);
+		customProgressDialog.setCanceledOnTouchOutside(false);
 		
 		return customProgressDialog;
 	}
