@@ -3,13 +3,18 @@ package com.zkr.xexgdd.activity;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.http.client.ClientProtocolException;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -40,7 +45,6 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -60,13 +64,11 @@ import com.tencent.mm.sdk.modelpay.PayReq;
 import com.tencent.mm.sdk.openapi.IWXAPI;
 import com.tencent.mm.sdk.openapi.WXAPIFactory;
 import com.zkr.xexgdd.R;
-import com.zkr.xexgdd.bean.ShareObject;
 import com.zkr.xexgdd.common.Constant;
-import com.zkr.xexgdd.utils.JsonUtils;
 import com.zkr.xexgdd.utils.LogUtil;
+import com.zkr.xexgdd.utils.MD5Util;
 import com.zkr.xexgdd.utils.MySharePreData;
 import com.zkr.xexgdd.utils.SharePopMenu;
-import com.zkr.xexgdd.utils.SharePopMenu.OnItemClickListener;
 import com.zkr.xexgdd.utils.SharePopMenu.shareBottomClickListener;
 import com.zkr.xexgdd.utils.Util;
 import com.zkr.xexgdd.view.GlobalProgressDialog;
@@ -113,6 +115,7 @@ public class MainActivity extends Activity implements OnClickListener,
 	private String WECHAT_PAY_URL = "http://wxpay.weixin.qq.com/pub_v2/app/app_pay.php?plat=android";
 	private String mWechatPayCallback;
 	private JSONObject jsonObject_wechatpay_ref;
+	private SortedMap<String, String> map = new TreeMap<String, String>();;
 	private Handler mHandler = new Handler() {
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
@@ -604,26 +607,39 @@ public class MainActivity extends Activity implements OnClickListener,
 							String wechat_pay_url = jsonObject.getString("wechat_pay_url");
 							mWechatPayCallback = jsonObject.getString("callback");
 							String mCancel = jsonObject.getString("cancel");
+							
 							LogUtil.d(TAG, "wechat pay JSON outer:  " + wechat_pay_url + ":::" + mWechatPayCallback + ":::" + mCancel);
 							JSONObject jsonObject2 = new JSONObject(wechat_pay_url); 
 							try {
+								String noncestr = getNonceStr();
+								String pid = jsonObject2.getString("pid");
+								map.put("appid", Constant.APP_ID);
+								map.put("partnerid", jsonObject2.getString("partnerid"));
+								map.put("package", "WX=Sign");
+								map.put("noncestr", noncestr);
+								map.put("prepayid", jsonObject2.getString("prepayid"));
+								map.put("timestamp", jsonObject2.getString("timestamp"));
+								String sign = createSign(map);
+								
 								req.appId			= Constant.APP_ID;
 								req.partnerId		= jsonObject2.getString("partnerid");   //response.getString("partnerid");
 								req.prepayId		= jsonObject2.getString("prepayid");
-								req.nonceStr		= jsonObject2.getString("noncestr");
+								req.nonceStr		=  noncestr;
 								req.timeStamp		= jsonObject2.getString("timestamp");
 								req.packageValue	= "WX=Sign";
-								req.sign			= jsonObject2.getString("sign");
-								LogUtil.d(TAG, "wechat pay JSON inner:  " + req.appId + ":::" + req.partnerId + ":::" + req.prepayId + ":::" + req.nonceStr + ":::"
-										+ req.timeStamp + ":::" + req.packageValue + ":::" + req.sign);
-								wxApi.sendReq(req);
-								
+								//req.sign			= jsonObject2.getString("sign");
+								req.sign			= sign;
+							
+								LogUtil.d(TAG, "wechat pay JSON inner:  " + req.appId + ":::" + req.partnerId + ":::" + req.prepayId + ":::" + noncestr + ":::"
+										+ req.timeStamp + ":::" + req.packageValue + ":::" + sign + ":::" + pid);
+								boolean flag = wxApi.sendReq(req);
+								LogUtil.d(TAG, "flag:   -->>>> " + flag);
 								jsonObject_wechatpay_ref = new JSONObject();
-								jsonObject2.put("prepayId", req.prepayId);
-								jsonObject2.put("partnerId", req.partnerId);
-								jsonObject2.put("nonceStr", req.nonceStr);
-								jsonObject2.put("sign", req.sign);
-								
+								jsonObject_wechatpay_ref.put("prepayId", req.prepayId);
+								jsonObject_wechatpay_ref.put("partnerId", req.partnerId);
+								jsonObject_wechatpay_ref.put("nonceStr", req.nonceStr);
+								jsonObject_wechatpay_ref.put("sign", req.sign);
+								jsonObject_wechatpay_ref.put("pid", pid);
 							} catch (JSONException e) {   
 								e.printStackTrace(); 
 								LogUtil.d(TAG, "wechat pay JSONException inner:  " + jsonObject2);
@@ -773,6 +789,7 @@ public class MainActivity extends Activity implements OnClickListener,
 				e.printStackTrace();
 			}
 			String result = returnJson_success.toString();
+			LogUtil.d(TAG, "result:::::   ----------->>>   " + result);
 			mWebView.loadUrl("javascript: " + mWechatPayCallback + "(" + result + ")");
 			break;
 		case "wechat_pay_fail":
@@ -827,4 +844,70 @@ public class MainActivity extends Activity implements OnClickListener,
 				});
 		      requestQueue.add(jsonObjectRequest);
 	}
+	
+	public String createSign(SortedMap<String, String> packageParams) {
+		StringBuffer sb = new StringBuffer();
+		Set es = packageParams.entrySet();
+		Iterator it = es.iterator();
+		while (it.hasNext()) {
+			Map.Entry entry = (Map.Entry) it.next();
+			String k = (String) entry.getKey();
+			String v = (String) entry.getValue();
+			if (null != v && !"".equals(v) && !"sign".equals(k)
+					&& !"key".equals(k)) {
+				sb.append(k + "=" + v + "&");
+			}
+		}
+		sb.append("key=" + "E1B1FB53F598A403CDF10ABC3584B80B");
+		LogUtil.d(TAG, "StringBuffer:  " + sb.toString());
+		String sign = MD5Util.string2MD5(sb.toString())
+				.toUpperCase();
+		return sign;
+	}
+	/**
+	 * 获取随机字符串
+	 * @return
+	 */
+	public static String getNonceStr() {
+		// 随机数
+		String currTime = getCurrTime();
+		// 8位日期
+		String strTime = currTime.substring(8, currTime.length());
+		// 四位随机数
+		String strRandom = buildRandom(4) + "";
+		// 10位序列号,可以自行调整。
+		return strTime + strRandom;
+	}
+	
+	/**
+	 * 获取当前时间 yyyyMMddHHmmss
+	 * @return String
+	 */ 
+	public static String getCurrTime() {
+		Date now = new Date();
+		SimpleDateFormat outFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+		String s = outFormat.format(now);
+		return s;
+	}
+	
+	/**
+	 * 取出一个指定长度大小的随机正整数.
+	 * 
+	 * @param length
+	 *            int 设定所取出随机数的长度。length小于11
+	 * @return int 返回生成的随机数。
+	 */
+	public static int buildRandom(int length) {
+		int num = 1;
+		double random = Math.random();
+		if (random < 0.1) {
+			random = random + 0.1;
+		}
+		for (int i = 0; i < length; i++) {
+			num = num * 10;
+		}
+		return (int) ((random * num));
+	}
+	
+	
 }
